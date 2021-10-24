@@ -1,0 +1,375 @@
+---
+title: Ft Riley avian point transects
+description: |
+  Initial investigations of Ft Riley 2020 avian survey.
+author:
+  - name: Rexstad 
+    url: 
+    affiliation: CREEM, University of St Andrews
+    affiliation_url: https://www.creem.st-andrews.ac.uk/
+date: "`r Sys.Date()`"
+output: 
+  distill::distill_article:
+    toc: true
+    toc_depth: 1
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 90)
+solution <- FALSE
+```
+
+Load the packages to be used
+
+```{r packages}
+library(Distance)
+library(readxl)
+library(knitr)
+library(kableExtra)
+```
+
+There are also a couple of functions I will define here to be used later in our analysis.
+
+```{r handy}
+cvmtest <- function(dsobject) {
+#  Small function that prints Cramer-von Mises test and associated P-value
+  cvmw <- round(gof_ds(dsobject, plot=FALSE)$dsgof$CvM$W, 3)
+  cvmp <- round(gof_ds(dsobject, plot=FALSE)$dsgof$CvM$p, 3)
+  print(paste("CvM W=", cvmw, "P=", cvmp))
+}
+
+visitplot <- function(dsobject) {
+# plots visit-specific detection functions
+  plot(dsobject, pdf=TRUE, showpoints=FALSE, main="Detection function with visit as covariate")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(1)), 
+                    pdf=TRUE, lty=1, col="blue")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(2)), 
+                    pdf=TRUE, lty=1, col="green")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(3)),
+                    pdf=TRUE, lty=1, col="red")
+  legend("topright", lty=1, legend=c("Visit 1", "Visit 2", "Visit 3"),
+         col=c("blue", "green", "red"))
+}
+```
+
+Acquire data from the spreadsheet.  Note how `na=` argument is used.
+
+```{r read}
+spreadsheet.file <- "BBS_Observations_Master.xlsx"
+birds <- as.data.frame(read_xlsx(path=spreadsheet.file, sheet="Observaitons", na="NA"))
+```
+
+Make adjustments to column names to conform to convention used in the `Distance` package.
+
+```{r adjust}
+names(birds)[7] <- "obsname"
+birds$Effort <- birds$effort
+birds$Region.Label <- birds$Region
+birds$Sample.Label <- birds$pid
+birds$Area <- 1
+```
+
+Specify units of measure.  With point transects there are no distances associated with `Effort`, that argument is set to `NULL`.
+
+```{r conv}
+birdunits <- convert_units("meter", NULL, "square kilometer")
+```
+
+Some quick exploration of the data shows Bout 3 is missing information about two stations; what are they?  Presumably there were no detections at these stations on the third visit.  Data will need to be adjusted accordingly because the data file implies two stations were not visited on the third bout.
+
+```{r explore, eval=solution}
+all.stns <- seq(from=0, to=100)
+length(unique(birds$pid[birds$bout==2]))
+stations.bout2 <- unique(birds$pid[birds$bout==2])
+setdiff(all.stns, stations.bout2)
+length(unique(birds$pid[birds$bout==3]))
+stations.bout3 <- unique(birds$pid[birds$bout==3])
+setdiff(all.stns, stations.bout3)
+```
+
+# Detections by species and visit
+
+There are several species of interest (according to KEM, 13Oct21 email): Henslow's Sparrow (HESP), Northern Bobwhite (NOBO), Pheasant (RNPH), Dickcissel (DICK).  Species with many detections include Brown-headed cowbird (BHCO), Eastern meadowlark (EAME) and Bell's vireo (BEVI).
+
+Investigate number of detections that might support bout-specific detection functions
+
+```{r speciesbout, eval=solution}
+special.species <- c("HESP", "NOBO", "RNPH", "DICK", "BHCO", "EAME", "BEVI")
+detect.table <- data.frame()
+for (spec in seq_along(1: length(special.species))) {
+  detect.table <- rbind(detect.table, as.vector(table(birds$bout[birds$species==special.species[spec]])))
+}
+names(detect.table) <- c("bout1", "bout2", "bout3")
+row.names(detect.table) <- special.species
+kable(detect.table, caption="Detections by visit", row.names = TRUE) %>%
+  kable_paper(bootstrap_options = "striped", full_width = FALSE)
+```
+
+```{r uglyfn}
+each.visit.alone <- function(mydata, spname, mytrunc, myunits) {
+  thisspp <- mydata[(mydata$species==spname & mydata$bout==1)  | is.na(mydata$distance), ]
+  this.unic <- ds(data=thisspp,
+                  transect="point", key="unif", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hnc <- ds(data=thisspp,
+                  transect="point", key="hn", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hrc <- ds(data=thisspp,
+                  transect="point", key="hr", adjustment = "cos", order=NULL,
+                  truncation = mytrunc, convert.units = myunits)
+  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
+        caption="Visit 1", digits=3, row.names = FALSE)
+  bout1 <- this.hrc$dht$individuals$D
+# visit2
+  thisspp <- mydata[(mydata$species==spname & mydata$bout==2)  | is.na(mydata$distance), ]
+  this.unic <- ds(data=thisspp,
+                  transect="point", key="unif", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hnc <- ds(data=thisspp,
+                  transect="point", key="hn", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hrc <- ds(data=thisspp,
+                  transect="point", key="hr", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
+        caption="Visit 2", digits=3, row.names = FALSE)
+  bout2 <- this.hrc$dht$individuals$D
+# visit3  
+  thisspp <- mydata[(mydata$species==spname & mydata$bout==3)  | is.na(mydata$distance), ]
+  this.unic <- ds(data=thisspp,
+                  transect="point", key="unif", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hnc <- ds(data=thisspp,
+                  transect="point", key="hn", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  this.hrc <- ds(data=thisspp,
+                  transect="point", key="hr", adjustment = "cos",
+                  truncation = mytrunc, convert.units = myunits)
+  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
+        caption="Visit 3", digits=3, row.names = FALSE)
+  bout3 <- this.hrc$dht$individuals$D
+  ests <- rbind(bout1, bout2, bout3)
+  ests$Label <- c("Visit 1", "Visit 2", "Visit 3")
+#  kable(ests, caption=paste("Visit-specific density estimates for", spname), digits = 3)
+  return(ests)
+}
+```
+
+
+# Northern bobwhite
+
+## Each visit treated separately
+
+```{r bobwhite, eval=solution}
+birds$Effort <- 1
+mytruncation <- "10%"
+bobwhite <- each.visit.alone(birds, "NOBO", mytruncation, birdunits)
+```
+
+## Pooled across visits
+Make sure to adjust effort properly, combining all visits implies effort is equal to number of visits.
+
+```{r nobopooled, eval=solution}
+birds$Effort <- 3
+nobo <- birds[(birds$species=="NOBO")  | is.na(birds$distance), ]
+nobopool <- ds(data=nobo,
+                transect="point", key="hr", adjustment = "cos",
+                truncation = mytruncation, convert.units = birdunits)
+summary(nobopool)
+```
+
+```{r fig.cap="Northern bobwhite pooled detection function", eval=solution}
+cvmtest(nobopool)
+plot(nobopool, pdf=TRUE, nc=20)
+```
+
+# Dickcissel
+
+## Each visit treated separately
+```{r dick, eval=solution}
+birds$Effort <- 1
+mytruncation <- "15%"
+dickcissel <- each.visit.alone(birds, "DICK", mytruncation, birdunits)
+```
+
+## Temporal estimate plot
+
+```{r dickbyvisit, fig.cap="Dickcissel density estimates by time", eval=solution}
+library(plotrix)
+visits <- c(1,2,3)
+plotCI(visits, dickcissel$Estimate, li=dickcissel$lcl, ui=dickcissel$ucl, ylab="Density (per km^-2)",
+       main="Dickcissel density estimates by visit 2020")
+```
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r dickpooled, eval=solution}
+birds$Effort <- 3
+dick <- birds[(birds$species=="DICK")  | is.na(birds$distance), ]
+dickpool <- ds(data=dick,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(dickpool)
+```
+
+```{r fig.cap="Dickcissel pooled detection function", eval=solution}
+cvmtest(dickpool)
+plot(dickpool, pdf=TRUE, nc=20)
+```
+
+# Brown headed cowbird
+
+## Each visit treated separately
+
+```{r cowbird, eval=solution}
+birds$Effort <- 1
+cowbird <- each.visit.alone(birds, "BHCO", mytruncation, birdunits)
+```
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r bhcopooled, eval=solution}
+birds$Effort <- 3
+bhco <- birds[(birds$species=="BHCO")  | is.na(birds$distance), ]
+bhcopool <- ds(data=bhco,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(bhcopool)
+```
+
+```{r fig.cap="Brown headed cowbird pooled detection function", eval=solution}
+cvmtest(bhcopool)
+plot(bhcopool, pdf=TRUE, nc=20)
+```
+
+
+# Eastern meadowlark
+
+## Each visit treated separately
+
+```{r meadow, eval=solution}
+birds$Effort <- 1
+meadowlark <- each.visit.alone(birds, "EAME", mytruncation, birdunits)
+```
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r eamepooled, eval=solution}
+birds$Effort <- 3
+eame <- birds[(birds$species=="EAME")  | is.na(birds$distance), ]
+eamepool <- ds(data=eame,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(eamepool)
+```
+
+```{r fig.cap="Eastern meadowlark pooled detection function", eval=solution}
+cvmtest(eamepool)
+plot(eamepool, pdf=TRUE, nc=15)
+```
+
+
+# Bell's vireo
+
+## Each visit treated separately
+
+```{r bellvir, eval=solution}
+birds$Effort <- 1
+bellsvireo <- each.visit.alone(birds, "BEVI", mytruncation, birdunits)
+```
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r bevipooled, eval=solution}
+birds$Effort <- 3
+bevi <- birds[(birds$species=="BEVI")  | is.na(birds$distance), ]
+bevipool <- ds(data=bevi,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(bevipool)
+```
+
+```{r fig.cap="Bells vireo pooled detection function", eval=solution}
+cvmtest(bevipool)
+plot(bevipool, pdf=TRUE, nc=15)
+```
+
+
+# Henslow's sparrow
+
+There are too few detections in individual visits that per-visit density estimates seem unwarranted.
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r hesppooled, eval=solution}
+birds$Effort <- 3
+hesp <- birds[(birds$species=="HESP")  | is.na(birds$distance), ]
+hesppool <- ds(data=hesp,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(hesppool)
+```
+
+```{r fig.cap="Henslows sparrow pooled detection function", eval=solution}
+cvmtest(hesppool)
+plot(hesppool, pdf=TRUE, nc=12)
+```
+
+# Ring-necked pheasant
+
+There are too few detections in individual visits that per-visit density estimates seem unwarranted.
+
+## Density estimate pooling across visits
+
+For this analysis, `Effort` must equal 3 to represent multiple visits.  This analysis knows nothing about multiple visits like previous analyses that explicitly included treatment of `bout`.
+
+```{r rnphpooled, eval=solution}
+birds$Effort <- 3
+rnph <- birds[(birds$species=="RNPH")  | is.na(birds$distance), ]
+rnphpool <- ds(data=rnph,
+                transect="point", key="hr", 
+                truncation = mytruncation, convert.units = birdunits)
+summary(rnphpool)
+```
+
+```{r fig.cap="Ring necked pheasant pooled detection function", eval=solution}
+cvmtest(rnphpool)
+plot(rnphpool, pdf=TRUE, nc=12)
+```
+
+# Density estimates across all species
+
+```{r denstable, eval=solution}
+density.table <- rbind(hesppool$dht$individuals$D,
+                       nobopool$dht$individuals$D,
+                       rnphpool$dht$individuals$D,
+                       dickpool$dht$individuals$D,
+                       bhcopool$dht$individuals$D,
+                       eamepool$dht$individuals$D,
+                       bevipool$dht$individuals$D)
+density.table$Label <- special.species
+kable(density.table[, 1:6], caption="Density estimates (per square kilometer) from pooled detections for all species", row.names=FALSE, digits=4)
+
+```
+
+In plotted form
+
+```{r plothi, eval=solution}
+plotCI(seq(1,5), density.table$Estimate[c(1,4:7)], li=density.table$lcl[c(1,4:7)],
+       ui=density.table$ucl[c(1,4:7)], ylab="Density (per km^-2)", xlab="Species", 
+       main="Species-specific densities for higher density species",
+       xaxt="n")
+axis(side=1, at=seq(1,5), labels=special.species[c(1,4:7)], cex=0.8)
+```

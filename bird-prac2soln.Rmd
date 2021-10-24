@@ -1,0 +1,224 @@
+---
+title: Ft Riley avian point transects
+description: |
+  Ft Riley 2020 avian survey using covariates for bout-specific estimates.
+author:
+  - name: Rexstad 
+    url: 
+    affiliation: CREEM, University of St Andrews
+    affiliation_url: https://www.creem.st-andrews.ac.uk/
+date: "`r Sys.Date()`"
+output: 
+  distill::distill_article:
+    toc: true
+    toc_depth: 1
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 90)
+solution <- TRUE
+```
+
+Load the packages to be used
+
+```{r packages}
+library(Distance)
+library(readxl)
+library(knitr)
+library(kableExtra)
+```
+
+Acquire data from the spreadsheet.  Note how `na=` argument is used.
+
+```{r read}
+spreadsheet.file <- "BBS_Observations_Master.xlsx"
+birds <- as.data.frame(read_xlsx(path=spreadsheet.file, sheet="Observaitons", na="NA"))
+```
+
+Make adjustments to column names to conform to convention used in the `Distance` package.
+
+```{r adjust}
+names(birds)[7] <- "obsname"
+birds$Effort <- birds$effort
+birds$Region.Label <- birds$Region
+birds$Sample.Label <- birds$pid
+birds$Area <- 1
+```
+
+Specify units of measure.  With point transects there are no distances associated with `Effort`, that argument is set to `NULL`.
+
+```{r conv}
+birdunits <- convert_units("meter", NULL, "square kilometer")
+```
+
+
+There are also a couple of functions I will define here to be used later in our analysis.
+
+```{r handy}
+cvmtest <- function(dsobject) {
+#  Small function that prints Cramer-von Mises test and associated P-value
+  cvmw <- round(gof_ds(dsobject, plot=FALSE)$dsgof$CvM$W, 3)
+  cvmp <- round(gof_ds(dsobject, plot=FALSE)$dsgof$CvM$p, 3)
+  print(paste("CvM W=", cvmw, "P=", cvmp))
+}
+
+visitplot <- function(dsobject) {
+# plots visit-specific detection functions
+  plot(dsobject, pdf=TRUE, showpoints=FALSE, main="Detection function with visit as covariate")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(1)), 
+                    pdf=TRUE, lty=1, col="blue")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(2)), 
+                    pdf=TRUE, lty=1, col="green")
+  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(3)),
+                    pdf=TRUE, lty=1, col="red")
+  legend("topright", lty=1, legend=c("Visit 1", "Visit 2", "Visit 3"),
+         col=c("blue", "green", "red"))
+}
+```
+
+# Northern bobwhite
+
+## Treating visit as stratum
+
+```{r nobovisitstrat, eval=solution}
+birds$Effort <- 1
+mytruncation <- "10%"
+nobo <- birds[(birds$species=="NOBO")  | is.na(birds$distance), ]
+nobo.vstrat <- ds(data=nobo,
+                transect="point", key="hr", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+nobo.ests <- dht2(ddf=nobo.vstrat, flatfile=nobo,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(nobo.ests, report="density")
+```
+
+```{r noboplot, fig.cap="Northern bobwhite detection function with visit as a covariate", eval=solution}
+cvmtest(nobo.vstrat)
+visitplot(nobo.vstrat)
+```
+
+# Dickcissel
+
+## Treating visit as stratum
+
+Assuming detection functions for each visit share a common key function.
+
+```{r dickvisitstrat, eval=solution}
+dick <- birds[(birds$species=="DICK")  | is.na(birds$distance), ]
+dick.vstrat <- ds(data=dick,
+                transect="point", key="hr", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+dick.ests <- dht2(ddf=dick.vstrat, flatfile=dick,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(dick.ests, report="density")
+```
+
+```{r visitplot, fig.cap="Dickcissel detection function with visit as a covariate", eval=solution}
+cvmtest(dick.vstrat)
+visitplot(dick.vstrat)
+```
+
+# Brown headed cowbird
+
+## Visit as stratum covariate
+
+Adjust effort for per-visit analysis
+
+```{r bhcovisit, eval=solution}
+bhco <- birds[(birds$species=="BHCO")  | is.na(birds$distance), ]
+bhco.vstrat <- ds(data=bhco,
+                transect="point", key="hr", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+bhco.ests <- dht2(ddf=bhco.vstrat, flatfile=bhco,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(bhco.ests, report="density")
+```
+
+```{r visitplotbhco, fig.cap="Brown headed cowbird detection function with visit as a covariate", eval=solution}
+cvmtest(bhco.vstrat)
+visitplot(bhco.vstrat)
+```
+
+# Eastern meadowlark
+
+## Visit as stratum covariate
+
+Adjust effort for per-visit analysis
+
+```{r eamevisit, eval=solution}
+eame <- birds[(birds$species=="EAME")  | is.na(birds$distance), ]
+eame.vstrat <- ds(data=eame,
+                transect="point", key="hr", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+eame.ests <- dht2(ddf=eame.vstrat, flatfile=eame,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(eame.ests, report="density")
+```
+
+```{r visitploteame, fig.cap="Eastern meadowlark detection function with visit as a covariate", eval=solution}
+cvmtest(eame.vstrat)
+visitplot(eame.vstrat)
+```
+
+# Bell's vireo
+## Visit as stratum covariate
+
+Adjust effort for per-visit analysis
+
+```{r bevivisit, eval=solution}
+bevi <- birds[(birds$species=="BEVI")  | is.na(birds$distance), ]
+bevi.vstrat <- ds(data=bevi,
+                transect="point", key="hr", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+bevi.ests <- dht2(ddf=bevi.vstrat, flatfile=bevi,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(bevi.ests, report="density")
+```
+
+```{r visitplotbevi, fig.cap="Bells vireo detection function with visit as a covariate", eval=solution}
+cvmtest(bevi.vstrat)
+visitplot(bevi.vstrat)
+```
+
+# Henslow's sparrow
+
+## Visit as stratum covariate
+
+Adjust effort for per-visit analysis
+
+```{r hespvisit, eval=solution}
+hesp <- birds[(birds$species=="HESP")  | is.na(birds$distance), ]
+hesp.vstrat <- ds(data=hesp,
+                transect="point", key="hn", formula=~as.factor(bout),
+                truncation = mytruncation, convert.units = birdunits)
+hesp.ests <- dht2(ddf=hesp.vstrat, flatfile=hesp,
+                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  stratification = "replicate")
+print(hesp.ests, report="density")
+```
+
+```{r visitplothesp, fig.cap="Henslows sparrow detection function with visit as a covariate", eval=solution}
+cvmtest(hesp.vstrat)
+visitplot(hesp.vstrat)
+```
+
+The plot of bout-specific detection functions makes the estimation enterprise dubious.
+
+```{r histos, eval=solution}
+hesp <- birds[(birds$species=="HESP"), ]
+h1 <- hesp[hesp$bout == 1, "distance"]
+h2 <- hesp[hesp$bout == 2, "distance"]
+h3 <- hesp[hesp$bout == 3, "distance"]
+par(mfrow=c(1,3))
+hist(h1, main="HESP, bout 1", nc=20)
+hist(h2, main="HESP, bout 2", nc=20)
+hist(h3, main="HESP, bout 3", nc=20)
+par(mfrow=c(1,1))
+```

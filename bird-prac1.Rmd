@@ -119,9 +119,9 @@ each.visit.alone <- function(mydata, spname, mytrunc, myunits) {
   this.hrc <- ds(data=thisspp,
                   transect="point", key="hr", adjustment = "cos", order=NULL,
                   truncation = mytrunc, convert.units = myunits)
-  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
-        caption="Visit 1", digits=3, row.names = FALSE)
+  v1 <- summarize_ds_models(this.unic, this.hnc, this.hrc)
   bout1 <- this.hrc$dht$individuals$D
+  sum.bout.specific <- min(AIC(this.unic, this.hnc, this.hrc)[,2])
 # visit2
   thisspp <- mydata[(mydata$species==spname & mydata$bout==2)  | is.na(mydata$distance), ]
   this.unic <- ds(data=thisspp,
@@ -133,9 +133,9 @@ each.visit.alone <- function(mydata, spname, mytrunc, myunits) {
   this.hrc <- ds(data=thisspp,
                   transect="point", key="hr", adjustment = "cos",
                   truncation = mytrunc, convert.units = myunits)
-  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
-        caption="Visit 2", digits=3, row.names = FALSE)
+  v2 <- summarize_ds_models(this.unic, this.hnc, this.hrc)
   bout2 <- this.hrc$dht$individuals$D
+  sum.bout.specific <- sum.bout.specific + min(AIC(this.unic, this.hnc, this.hrc)[,2])
 # visit3  
   thisspp <- mydata[(mydata$species==spname & mydata$bout==3)  | is.na(mydata$distance), ]
   this.unic <- ds(data=thisspp,
@@ -147,13 +147,17 @@ each.visit.alone <- function(mydata, spname, mytrunc, myunits) {
   this.hrc <- ds(data=thisspp,
                   transect="point", key="hr", adjustment = "cos",
                   truncation = mytrunc, convert.units = myunits)
-  kable(summarize_ds_models(this.unic, this.hnc, this.hrc)[,2:7], 
-        caption="Visit 3", digits=3, row.names = FALSE)
+  v3 <- summarize_ds_models(this.unic, this.hnc, this.hrc)
+  ninemodels <- rbind(v1, v2, v3)
   bout3 <- this.hrc$dht$individuals$D
+  sum.bout.specific <- sum.bout.specific + min(AIC(this.unic, this.hnc, this.hrc)[,2])
   ests <- rbind(bout1, bout2, bout3)
   ests$Label <- c("Visit 1", "Visit 2", "Visit 3")
-#  kable(ests, caption=paste("Visit-specific density estimates for", spname), digits = 3)
-  return(ests)
+# function returns
+#   ests - data frame of bout-specific density estimates from pooled detfn model
+#   sum.bout.specific - AIC value summed across bout-specific selected models
+#   ninemodels - concatenated model selection table across all bouts
+  return(list(ests=ests, sum.bout.specific=sum.bout.specific, ninemodels=ninemodels))
 }
 ```
 

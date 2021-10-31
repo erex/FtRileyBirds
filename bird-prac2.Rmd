@@ -222,3 +222,52 @@ hist(h2, main="HESP, bout 2", nc=20)
 hist(h3, main="HESP, bout 3", nc=20)
 par(mfrow=c(1,1))
 ```
+
+# Addendum
+
+What are the consequences of employing covariates in the detection function (beyond covariate for sampling session)?  Many other covariates were collected at the time of data collection, presumably because of their potential explanatory power in detection function modelling.  I will demonstrate the effect of a couple of covariates on the detection function of dickcissel.
+
+```{r eda, echo=FALSE, layout="l-body-outset", fig.height=6, fig.cap="Exploratory data analysis of dickcissel detection function covariates."}
+library(vioplot)
+dick <- birds[(birds$species=="DICK")  | is.na(birds$distance), ]
+par(mfrow=c(3,2))
+vioplot(distance~obsname, data=dick)
+vioplot(distance~scribe, data=dick)
+plot(distance~wind, data=dick[dick$wind<10, ])  # some data errors for wind
+plot(distance~start, data=dick)
+plot(distance~temp, data=dick[dick$temp>10, ]) # really cold on 28June20
+par(mfrow=c(1,1))
+```
+
+Nothing is evident in the exploratory plots; I suspect nothing will arise from covariate modelling.  To demonstrate the point, a barrage of single covariate models with above covariates (and hazard rate key), compared with pooled hazard rate without covariates:
+
+```{r covarmods, echo=FALSE, error=FALSE}
+mytruncation <- "10%"
+dick <- dick[dick$wind<10,]
+dickobs <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits,
+              formula=~obsname)
+dickscribe <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits,
+                 formula=~scribe)
+dickwind <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits,
+               formula=~scale(wind))
+dickstart <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits,
+                formula=~scale(start))
+dicktemp <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits,
+               formula=~scale(temp))
+dicknothing <- ds(dick, transect="point", key="hr", truncation = mytruncation, convert.units = birdunits)
+kable(summarize_ds_models(dickobs, dickscribe, dickwind, dickstart, dicktemp, dicknothing)[, 2:7], row.names = FALSE, 
+      digits=c(0,0,2,5,2,5), caption="Model selection for covariate models with Dickcissel 2020")
+```
+
+Look not only at the $\Delta$AIC but also at the differences in $\hat{P_a}$.  These differences translate into differences in $\hat{D}$
+
+```{r outests, echo=FALSE}
+outests <- rbind(dickobs$dht$individuals$D[,2:6],
+                 dickscribe$dht$individuals$D[,2:6],
+                 dickwind$dht$individuals$D[,2:6],
+                 dickstart$dht$individuals$D[,2:6],
+                 dicktemp$dht$individuals$D[,2:6],
+                 dicknothing$dht$individuals$D[,2:6])
+row.names(outests) <- c("Observer", "Scribe", "Wind", "Start", "Temp", "Nothing")
+kable(outests, digits=3, caption="Density estimates for Dickcissel from various covariate models")
+```

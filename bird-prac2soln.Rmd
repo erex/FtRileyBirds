@@ -1,7 +1,7 @@
 ---
 title: Ft Riley avian point transects
 description: |
-  Ft Riley 2020 avian survey using covariates for bout-specific estimates.
+  Ft Riley 2020 avian survey using covariates for bout-specific estimates.  Minor revision to treat `bout` explicitly as stratum.
 author:
   - name: Rexstad 
     url: 
@@ -42,7 +42,7 @@ Make adjustments to column names to conform to convention used in the `Distance`
 ```{r adjust}
 names(birds)[7] <- "obsname"
 birds$Effort <- birds$effort
-birds$Region.Label <- birds$Region
+birds$Region.Label <- birds$bout  # explicitly make bouts into Strata
 birds$Sample.Label <- birds$pid
 birds$Area <- 1
 ```
@@ -67,11 +67,11 @@ cvmtest <- function(dsobject) {
 visitplot <- function(dsobject) {
 # plots visit-specific detection functions
   plot(dsobject, pdf=TRUE, showpoints=FALSE, main="Detection function with visit as covariate")
-  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(1)), 
+  add_df_covar_line(dsobject, data=data.frame(Region.Label=as.factor(1)), 
                     pdf=TRUE, lty=1, col="blue")
-  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(2)), 
+  add_df_covar_line(dsobject, data=data.frame(Region.Label=as.factor(2)), 
                     pdf=TRUE, lty=1, col="green")
-  add_df_covar_line(dsobject, data=data.frame(bout=as.factor(3)),
+  add_df_covar_line(dsobject, data=data.frame(Region.Label=as.factor(3)),
                     pdf=TRUE, lty=1, col="red")
   legend("topright", lty=1, legend=c("Visit 1", "Visit 2", "Visit 3"),
          col=c("blue", "green", "red"))
@@ -87,10 +87,10 @@ birds$Effort <- 1
 mytruncation <- "10%"
 nobo <- birds[(birds$species=="NOBO")  | is.na(birds$distance), ]
 nobo.vstrat <- ds(data=nobo,
-                transect="point", key="hr", formula=~as.factor(bout),
+                transect="point", key="hr", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 nobo.ests <- dht2(ddf=nobo.vstrat, flatfile=nobo,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(nobo.ests, report="density")
 ```
@@ -109,10 +109,10 @@ Assuming detection functions for each visit share a common key function.
 ```{r dickvisitstrat, eval=solution}
 dick <- birds[(birds$species=="DICK")  | is.na(birds$distance), ]
 dick.vstrat <- ds(data=dick,
-                transect="point", key="hr", formula=~as.factor(bout),
+                transect="point", key="hr", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 dick.ests <- dht2(ddf=dick.vstrat, flatfile=dick,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(dick.ests, report="density")
 ```
@@ -131,10 +131,10 @@ Adjust effort for per-visit analysis
 ```{r bhcovisit, eval=solution}
 bhco <- birds[(birds$species=="BHCO")  | is.na(birds$distance), ]
 bhco.vstrat <- ds(data=bhco,
-                transect="point", key="hr", formula=~as.factor(bout),
+                transect="point", key="hr", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 bhco.ests <- dht2(ddf=bhco.vstrat, flatfile=bhco,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(bhco.ests, report="density")
 ```
@@ -153,10 +153,10 @@ Adjust effort for per-visit analysis
 ```{r eamevisit, eval=solution}
 eame <- birds[(birds$species=="EAME")  | is.na(birds$distance), ]
 eame.vstrat <- ds(data=eame,
-                transect="point", key="hr", formula=~as.factor(bout),
+                transect="point", key="hr", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 eame.ests <- dht2(ddf=eame.vstrat, flatfile=eame,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(eame.ests, report="density")
 ```
@@ -174,10 +174,10 @@ Adjust effort for per-visit analysis
 ```{r bevivisit, eval=solution}
 bevi <- birds[(birds$species=="BEVI")  | is.na(birds$distance), ]
 bevi.vstrat <- ds(data=bevi,
-                transect="point", key="hr", formula=~as.factor(bout),
+                transect="point", key="hr", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 bevi.ests <- dht2(ddf=bevi.vstrat, flatfile=bevi,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(bevi.ests, report="density")
 ```
@@ -196,10 +196,10 @@ Adjust effort for per-visit analysis
 ```{r hespvisit, eval=solution}
 hesp <- birds[(birds$species=="HESP")  | is.na(birds$distance), ]
 hesp.vstrat <- ds(data=hesp,
-                transect="point", key="hn", formula=~as.factor(bout),
+                transect="point", key="hn", formula=~as.factor(Region.Label),
                 truncation = mytruncation, convert.units = birdunits)
 hesp.ests <- dht2(ddf=hesp.vstrat, flatfile=hesp,
-                  strat_formula = ~as.factor(bout), convert_units = birdunits,
+                  strat_formula = ~as.factor(Region.Label), convert_units = birdunits,
                   stratification = "replicate")
 print(hesp.ests, report="density")
 ```
@@ -261,13 +261,13 @@ kable(summarize_ds_models(dickobs, dickscribe, dickwind, dickstart, dicktemp, di
 
 Look not only at the $\Delta$AIC but also at the differences in $\hat{P_a}$.  These differences translate into differences in $\hat{D}$
 
-```{r outests, echo=FALSE}
-outests <- rbind(dickobs$dht$individuals$D[,2:6],
-                 dickscribe$dht$individuals$D[,2:6],
-                 dickwind$dht$individuals$D[,2:6],
-                 dickstart$dht$individuals$D[,2:6],
-                 dicktemp$dht$individuals$D[,2:6],
-                 dicknothing$dht$individuals$D[,2:6])
+```{r outests, echo=FALSE, eval=TRUE}
+outests <- rbind(dickobs$dht$individuals$D[4,2:6],
+                 dickscribe$dht$individuals$D[4,2:6],
+                 dickwind$dht$individuals$D[4,2:6],
+                 dickstart$dht$individuals$D[4,2:6],
+                 dicktemp$dht$individuals$D[4,2:6],
+                 dicknothing$dht$individuals$D[4,2:6])
 row.names(outests) <- c("Observer", "Scribe", "Wind", "Start", "Temp", "Nothing")
 kable(outests, digits=3, caption="Density estimates for Dickcissel from various covariate models")
 ```
